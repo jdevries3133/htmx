@@ -587,6 +587,61 @@ describe("hx-trigger attribute", function(){
         }, 50);
     });
 
+  it('delay delays the call to htmx:configRequest', function(done)
+    {
+        var timeOffsets = {
+          configRequest: 30,
+          hxDelay: 20,
+          assertHeaderChanged: 50
+        };
+        var requests = 0;
+        var header;
+        var handler = htmx.on("htmx:configRequest", function (evt) {
+          setTimeout(function() {
+            evt.detail.headers['X-Delayed-Header'] = 'bar';
+          }, timeOffsets.configRequest)
+        });
+        var server = this.server;
+
+        this.server.respondWith("GET", "/test", function (xhr) {
+            requests++;
+            header = xhr.requestHeaders['X-Delayed-Header']
+            xhr.respond(200, {}, "Requests: " + requests);
+        });
+        this.server.respondWith("GET", "/bar", "bar");
+        var div = make(
+          "<div hx-trigger='click delay:"
+          + timeOffsets.hxDelay
+          + "ms' hx-get='/test'></div>"
+        );
+
+        div.click();
+        this.server.respond();
+
+        div.click();
+        this.server.respond();
+
+        div.click();
+        this.server.respond();
+
+        div.click();
+        this.server.respond();
+        should.equal(header, undefined);
+
+        setTimeout(function () {
+            server.respond();
+            should.equal(header, 'bar');
+
+            div.click();
+            server.respond();
+            should.equal(header, 'bar');
+
+            done();
+        }, timeOffsets.assertHeaderChanged);
+        done();
+    }
+  )
+
     it('requests are queued with last one winning by default', function()
     {
         var requests = 0;
